@@ -41,7 +41,7 @@ public class Subsystem {
 
         // Text
         String text = String.valueOf(number);
-        Font font = new Font(size * 0.6);
+        Font font = Font.loadFont(getClass().getResourceAsStream("/Quantico-Regular.ttf"), size * 0.6);
         gc.setFont(font);
         gc.setFill(color);
 
