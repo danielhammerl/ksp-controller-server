@@ -1,0 +1,49 @@
+plugins {
+    id 'java'
+    id 'application'
+    id("com.google.protobuf") version "0.9.5"
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+}
+
+def jarUrlToKrpc = "https://github.com/krpc/krpc/releases/download/v0.5.4/krpc-java-0.5.4.jar"
+def jarName = jarUrlToKrpc.tokenize("/")[-1]
+def jarFile = layout.buildDirectory.file("libs/${jarName}").get().asFile
+
+application {
+    mainClass.set("de.danielhammerl.Main")
+}
+
+tasks.register("downloadLib") {
+    outputs.file(jarFile)
+    doLast {
+        if (!jarFile.exists()) {
+            println "Downloading ${jarUrlToKrpc}..."
+            new URL(jarUrlToKrpc).withInputStream { i ->
+                jarFile.parentFile.mkdirs()
+                jarFile.withOutputStream { it << i }
+            }
+            println "Saved to ${jarFile}"
+        }
+    }
+}
+
+group = 'de.danielhammerl'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+javafx {
+    version = "21.0.2"
+    modules = [ 'javafx.controls', 'javafx.graphics' ]
+}
+
+dependencies {
+    implementation(files(tasks.named("downloadLib").map { it.outputs.files.singleFile }))
+
+    implementation("org.javatuples:javatuples:1.2")
+    implementation 'net.java.jinput:jinput:2.0.10'
+    implementation 'com.google.protobuf:protobuf-java:3.25.3'
+    implementation("org.openjfx:javafx-controls:21.0.2")
+}
