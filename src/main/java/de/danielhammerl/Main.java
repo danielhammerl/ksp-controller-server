@@ -22,7 +22,7 @@ import javafx.stage.Stage;
 
 
 public class Main extends Application {
-    int maxFps = 5;
+    int maxFps = 15;
     static boolean connected = false;
     Font mainFont;
     BusinessCode businessCode  = new BusinessCode();

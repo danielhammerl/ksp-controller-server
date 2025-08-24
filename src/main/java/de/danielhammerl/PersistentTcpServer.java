@@ -81,6 +81,7 @@ public class PersistentTcpServer {
         private void runLoop() {
             byte[] buffer = new byte[1024];
             try {
+                socket.setSoTimeout(2000); // Timeout
                 while (connected && !socket.isClosed()) {
                     int read = in.read(buffer);
                     if (read == -1) break;
@@ -89,7 +90,7 @@ public class PersistentTcpServer {
                     }
                 }
             } catch (IOException e) {
-                // Verbindung verloren
+                // Verbindung verloren oder Timeout
             } finally {
                 connected = false;
                 clients.remove(this);
@@ -97,6 +98,7 @@ public class PersistentTcpServer {
                 System.out.println("Client disconnected: " + socket.getRemoteSocketAddress());
             }
         }
+
 
         public synchronized void send(byte[] data) throws IOException {
             if (connected && out != null) {

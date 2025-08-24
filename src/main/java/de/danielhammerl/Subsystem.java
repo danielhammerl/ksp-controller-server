@@ -5,19 +5,29 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 
+import java.io.IOException;
+
 public class Subsystem {
     private final int number;
     private final int port;
     private boolean state = false;
     PersistentTcpServer tcpClient;
-    private PersistentTcpServer.DataListener listener;
 
 
     public Subsystem(int number, int port) {
         this.number = number;
         this.port = port;
 
-        tcpClient = new PersistentTcpServer(port, listener);
+        tcpClient = new PersistentTcpServer(port, this::onDataReceived);
+    }
+
+    public void onDataReceived(PersistentTcpServer.ClientHandler client, byte[] data, int length) {
+        String msg = new String(data, 0, length);
+        try {
+            client.send(("Echo from subsystem " + number + ": " + msg).getBytes());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public int getPort() {
@@ -33,7 +43,15 @@ public class Subsystem {
     }
 
     public void draw(GraphicsContext gc, double x, double y, double size) {
-        Color color = state ? Color.WHITE : Color.RED;
+        Color color;
+        if (state) {
+            color = Color.WHITE;
+        } else {
+            // Blink-Logik: alle 500ms rot / transparent
+            long now = System.currentTimeMillis();
+            boolean blinkOn = (now / 500) % 2 == 0;
+            color = blinkOn ? Color.RED : Color.TRANSPARENT;
+        }
 
         // Quadrat-Rahmen
         gc.setStroke(color);
