@@ -42,14 +42,18 @@ public class Subsystem {
         state = tcpClient.getConnected();
     }
 
+    // statisch, daher über alle instanzen genutzt, daher synchones blinken! :)
+    public static boolean isBlinkOn() {
+        long now = System.currentTimeMillis();
+        return (now / 500) % 2 == 0;
+    }
+
     public void draw(GraphicsContext gc, double x, double y, double size) {
         Color color;
         if (state) {
             color = Color.WHITE;
         } else {
-            // Blink-Logik: alle 500ms rot / transparent
-            long now = System.currentTimeMillis();
-            boolean blinkOn = (now / 500) % 2 == 0;
+            boolean blinkOn = Subsystem.isBlinkOn();
             color = blinkOn ? Color.RED : Color.TRANSPARENT;
         }
 
