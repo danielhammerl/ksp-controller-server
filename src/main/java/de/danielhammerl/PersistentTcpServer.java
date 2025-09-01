@@ -6,27 +6,35 @@ import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
+// enormous shitload of code
 public class PersistentTcpServer {
+    private final int BUFFER_SIZE = 512;
     private final int port;
     private volatile boolean running = true;
-
-    private Thread serverThread;
+    private final Thread serverThread;
     private final CopyOnWriteArrayList<ClientHandler> clients = new CopyOnWriteArrayList<>();
-    private DataListener listener;
+    private final LinkedBlockingQueue<DataPacket> dataQueue = new LinkedBlockingQueue<>();
 
-    public interface DataListener {
-        void onDataReceived(ClientHandler client, byte[] data, int length);
+    public static class DataPacket {
+        public final ClientHandler client;
+        public final byte[] data;
+        public final int length;
+
+        public DataPacket(ClientHandler client, byte[] data, int length) {
+            this.client = client;
+            this.data = data;
+            this.length = length;
+        }
     }
 
-    public PersistentTcpServer(int port, DataListener listener) {
+    public PersistentTcpServer(int port) {
         this.port = port;
-        this.listener = listener;
-
         serverThread = new Thread(this::runServer, "TcpServerThread");
         serverThread.setDaemon(true);
         serverThread.start();
-
         System.out.println("Server listening on port " + port);
     }
 
@@ -59,11 +67,22 @@ public class PersistentTcpServer {
         }
     }
 
+    public DataPacket waitForData(int timeoutMillis) throws InterruptedException {
+        return dataQueue.poll(timeoutMillis, TimeUnit.MILLISECONDS);
+    }
+
+    public void sendData(byte[] data) throws IOException {
+        for (ClientHandler c : clients) {
+            if (c.isConnected()) {
+                c.send(data);
+            }
+        }
+    }
+
     public class ClientHandler {
-        private Socket socket;
-        private InputStream in;
-        private OutputStream out;
-        private Thread thread;
+        private final Socket socket;
+        private final InputStream in;
+        private final OutputStream out;
         private volatile boolean connected = true;
 
         public ClientHandler(Socket socket) throws IOException {
@@ -73,24 +92,22 @@ public class PersistentTcpServer {
         }
 
         public void start() {
-            thread = new Thread(this::runLoop, "ClientThread-" + socket.getRemoteSocketAddress());
+            Thread thread = new Thread(this::runLoop, "ClientThread-" + socket.getRemoteSocketAddress());
             thread.setDaemon(true);
             thread.start();
         }
 
         private void runLoop() {
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[BUFFER_SIZE];
             try {
-                socket.setSoTimeout(2000); // Timeout
+                socket.setSoTimeout(2000);
                 while (connected && !socket.isClosed()) {
                     int read = in.read(buffer);
                     if (read == -1) break;
-                    if (listener != null) {
-                        listener.onDataReceived(this, buffer, read);
-                    }
+                    dataQueue.offer(new DataPacket(this, buffer.clone(), read));
                 }
             } catch (IOException e) {
-                // Verbindung verloren oder Timeout
+                // Connection lost or timeout
             } finally {
                 connected = false;
                 clients.remove(this);
@@ -98,7 +115,6 @@ public class PersistentTcpServer {
                 System.out.println("Client disconnected: " + socket.getRemoteSocketAddress());
             }
         }
-
 
         public synchronized void send(byte[] data) throws IOException {
             if (connected && out != null) {

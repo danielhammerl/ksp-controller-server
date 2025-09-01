@@ -11,6 +11,9 @@ def jarFile = layout.buildDirectory.file("libs/${jarName}").get().asFile
 
 application {
     mainClass.set("de.danielhammerl.Main")
+    applicationDefaultJvmArgs = [
+            '--enable-native-access=javafx.graphics'
+    ]
 }
 
 tasks.register("downloadLib") {

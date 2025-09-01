@@ -26,7 +26,7 @@ Controls:
   - RCS Precise Mode? (1x Kippschalter, wenn aktiv, erhöht joystick sensitivität um faktor x)
 
 Indicators:
-  - Altitude (over ground) (7 segment anzeige)
+  - x Altitude (over ground) (7 segment anzeige)
   - SPEED (7 segment anzeige)
   - Electrical Charge (gauge)
   - Fuel in current stage (gauge)

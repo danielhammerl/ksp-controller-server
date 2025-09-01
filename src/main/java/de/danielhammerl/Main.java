@@ -8,6 +8,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.util.Duration;
 import krpc.client.Connection;
+import krpc.client.RPCException;
 import krpc.client.services.KRPC;
 
 import java.io.IOException;
@@ -19,15 +20,17 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
+import krpc.client.services.SpaceCenter;
 
 
 public class Main extends Application {
     int maxFps = 15;
-    static boolean connected = false;
+    static volatile boolean connected = false;
+    static volatile boolean connectionStarted = false;
     Font mainFont;
-    BusinessCode businessCode  = new BusinessCode();
+    BusinessCode businessCode = new BusinessCode();
 
-    Subsystem[] subsystems = new Subsystem[] {
+    Subsystem[] subsystems = new Subsystem[]{
             new Subsystem(1, 12800),
             new Subsystem(2, 12801),
             new Subsystem(3, 12802),
@@ -69,19 +72,40 @@ public class Main extends Application {
         stage.show();
     }
 
-    private void update() {
-        try (Connection connection = Connection.newInstance("KSP-Server", Inet4Address.getByName("127.0.0.1"), 50000, 50001)) {
-            KRPC krpc = KRPC.newInstance(connection);
-            connected = true;
+    private void startConnectionThread() {
+        new Thread(() -> {
+            try {
+                try (Connection connection = Connection.newInstance("KSP-Server", Inet4Address.getByName("127.0.0.1"), 50000, 50001)) {
+                    KRPC krpc = KRPC.newInstance(connection);
+                    connected = true;
 
-            for (Subsystem subsystem : subsystems) {
-                subsystem.update();
+                    while (true) {
+                        if (krpc.getCurrentGameScene().getValue() == KRPC.GameScene.FLIGHT.getValue()) {
+                            businessCode.update(connection, subsystems);
+                        }
+                        Thread.sleep(10);
+                    }
+
+                } catch (IOException | RPCException e) {
+                    System.err.println("Error in connection thread" + e);
+                };
+                connected = false;
+                connectionStarted = false;
+            } catch (Throwable t) {
+                t.printStackTrace();
+                System.exit(1);
             }
+        }).start();
+    }
 
-            businessCode.update(krpc, subsystems);
+    private void update() {
+        if (!connected && !connectionStarted) {
+            connectionStarted = true;
+            startConnectionThread();
+        }
 
-        } catch (IOException e) {
-            connected = false;
+        for (Subsystem subsystem : subsystems) {
+            subsystem.update();
         }
     }
 
